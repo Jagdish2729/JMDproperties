@@ -12,6 +12,7 @@ const properties = [
 type Intent = "BUY" | "SELL";
 type LeadStatus = "NEW" | "CALL_BOOKED" | "CALL_COMPLETED" | "MEETING_BOOKED" | "MEETING_COMPLETED" | "NEGOTIATION" | "DEAL_IN_PROGRESS" | "DONE" | "CANCELLED";
 type Lead = { id:string; name:string; phone:string; location:string; lookingFor:string; type:Intent; status:LeadStatus; assignedTo?:string|null; notes?:string|null; createdAt:string; statusEvents:{id:string;status:LeadStatus;note?:string|null;createdAt:string}[] };
+type LeadFormData = { name:string; phone:string; location:string; lookingFor:string };
 
 const statusLabels: Record<LeadStatus,string> = {
   NEW:"New", CALL_BOOKED:"Call Booked", CALL_COMPLETED:"Call Completed", MEETING_BOOKED:"Meeting Booked",
@@ -94,6 +95,10 @@ function App() {
   const [formOpen, setFormOpen] = useState(false);
   const [intent, setIntent] = useState<Intent>("BUY");
   const [submitted, setSubmitted] = useState(false);
+  const [formData, setFormData] = useState<Record<Intent, LeadFormData>>({
+    BUY: { name:"", phone:"", location:"", lookingFor:"" },
+    SELL: { name:"", phone:"", location:"", lookingFor:"" }
+  });
 
   const openForm = (nextIntent?: Intent) => {
     if (nextIntent) setIntent(nextIntent);
@@ -103,22 +108,32 @@ function App() {
 
   const closeForm = () => setFormOpen(false);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const updateFormField = (field: keyof LeadFormData, value: string) => {
+    setFormData(current => ({
+      ...current,
+      [intent]: { ...current[intent], [field]: value }
+    }));
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
     const lead = {
-      name: String(formData.get("name") || ""),
-      phone: String(formData.get("phone") || ""),
-      location: String(formData.get("location") || ""),
-      lookingFor: String(formData.get("lookingFor") || ""),
-      intent,
-      createdAt: new Date().toISOString(),
+      ...formData[intent],
+      type: intent
     };
 
-    // Temporary local save until the PostgreSQL API is connected.
-    fetch(API_URL + "/api/leads", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(lead) })
-      .then(async res => { if (!res.ok) throw new Error((await res.json()).message || "Could not save your enquiry"); setSubmitted(true); })
-      .catch(err => { alert(err.message); });
+    try {
+      const res = await fetch(API_URL + "/api/leads", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(lead)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not save your enquiry");
+      setSubmitted(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not save your enquiry");
+    }
   };
 
   return <main>
@@ -174,10 +189,10 @@ function App() {
             <button className={intent === "SELL" ? "active" : ""} type="button" onClick={() => setIntent("SELL")}>I want to sell</button>
           </div>
           <form onSubmit={handleSubmit}>
-            <label><span>Your name</span><input name="name" placeholder="What should we call you?" required /></label>
-            <label><span>Contact number</span><input name="phone" type="tel" inputMode="numeric" pattern="[0-9]{10}" maxLength={10} placeholder="10-digit mobile number" required /></label>
-            <label><span>Location</span><input name="location" placeholder="e.g. Noida, Greater Noida" required /></label>
-            <label><span>What are you looking for?</span><input name="lookingFor" placeholder={intent === "BUY" ? "e.g. 3 BHK / plot / commercial" : "e.g. flat / house / plot"} required /></label>
+            <label><span>Your name</span><input name="name" value={formData[intent].name} onChange={e=>updateFormField("name",e.target.value)} placeholder="What should we call you?" required /></label>
+            <label><span>Contact number</span><input name="phone" type="tel" inputMode="numeric" pattern="[0-9]{10}" maxLength={10} value={formData[intent].phone} onChange={e=>updateFormField("phone",e.target.value)} placeholder="10-digit mobile number" required /></label>
+            <label><span>Location</span><input name="location" value={formData[intent].location} onChange={e=>updateFormField("location",e.target.value)} placeholder="e.g. Noida, Greater Noida" required /></label>
+            <label><span>What are you looking for?</span><input name="lookingFor" value={formData[intent].lookingFor} onChange={e=>updateFormField("lookingFor",e.target.value)} placeholder={intent === "BUY" ? "e.g. 3 BHK / plot / commercial" : "e.g. flat / house / plot"} required /></label>
             <button className="form-submit" type="submit">Continue with JMD <ArrowUpRight size={18}/></button>
           </form>
           <small className="form-note">No account. No spam. Just a conversation when you need it.</small>
