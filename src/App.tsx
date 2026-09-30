@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { ArrowUpRight, Check, ChevronDown, MapPin, Phone, Search, ShieldCheck, X } from "lucide-react";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 const properties = [
   { title: "3 BHK · Sector 150", meta: "Noida · 1,650 sq.ft.", price: "₹92 L", tag: "Verified" },
@@ -8,8 +10,87 @@ const properties = [
 ];
 
 type Intent = "BUY" | "SELL";
+type LeadStatus = "NEW" | "CALL_BOOKED" | "CALL_COMPLETED" | "MEETING_BOOKED" | "MEETING_COMPLETED" | "NEGOTIATION" | "DEAL_IN_PROGRESS" | "DONE" | "CANCELLED";
+type Lead = { id:string; name:string; phone:string; location:string; lookingFor:string; type:Intent; status:LeadStatus; assignedTo?:string|null; notes?:string|null; createdAt:string; statusEvents:{id:string;status:LeadStatus;note?:string|null;createdAt:string}[] };
+
+const statusLabels: Record<LeadStatus,string> = {
+  NEW:"New", CALL_BOOKED:"Call Booked", CALL_COMPLETED:"Call Completed", MEETING_BOOKED:"Meeting Booked",
+  MEETING_COMPLETED:"Meeting Completed", NEGOTIATION:"Negotiation", DEAL_IN_PROGRESS:"Deal In Progress", DONE:"Done", CANCELLED:"Cancelled"
+};
+const statusOptions = Object.keys(statusLabels) as LeadStatus[];
+
+function AdminPanel() {
+  const [token, setToken] = useState(() => sessionStorage.getItem("jmd-admin-token") || "");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const loadLeads = async (authToken = token) => {
+    setLoading(true); setError("");
+    try {
+      const res = await fetch(API_URL + "/api/admin/leads", { headers: { Authorization: "Bearer " + authToken } });
+      if (!res.ok) throw new Error("Could not load leads");
+      setLeads(await res.json());
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not load leads"); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { if (token) loadLeads(token); }, [token]);
+
+  const login = async (e: FormEvent) => {
+    e.preventDefault(); setError(""); setLoading(true);
+    try {
+      const res = await fetch(API_URL + "/api/admin/login", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email,password}) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Login failed");
+      sessionStorage.setItem("jmd-admin-token", data.token); setToken(data.token); setPassword("");
+    } catch (e) { setError(e instanceof Error ? e.message : "Login failed"); }
+    finally { setLoading(false); }
+  };
+
+  const updateLead = async (id:string, patch:Partial<Lead>) => {
+    try {
+      const res = await fetch(API_URL + "/api/admin/leads/" + id, { method:"PATCH", headers:{"Content-Type":"application/json",Authorization:"Bearer "+token}, body:JSON.stringify(patch) });
+      if (!res.ok) throw new Error("Update failed");
+      const updated = await res.json();
+      setLeads(current => current.map(l => l.id === id ? updated : l));
+    } catch (e) { setError(e instanceof Error ? e.message : "Update failed"); }
+  };
+
+  if (!token) return <main className="admin-page"><div className="admin-login">
+    <a className="brand" href="/"><span>JMD</span><small>PROPERTIES</small></a>
+    <p className="eyebrow">PRIVATE / ADMIN</p><h1>Welcome<br/><em>back.</em></h1>
+    <p className="admin-sub">Sign in to manage JMD leads and their journey.</p>
+    <form onSubmit={login}>
+      <label><span>Email</span><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="admin@jmdproperties.com" required/></label>
+      <label><span>Password</span><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Your password" required/></label>
+      {error && <p className="admin-error">{error}</p>}
+      <button className="form-submit" disabled={loading}>{loading ? "Signing in…" : "Enter admin panel"} <ArrowUpRight size={18}/></button>
+    </form>
+  </div></main>;
+
+  return <main className="admin-page"><div className="admin-shell">
+    <header className="admin-top"><div><a className="brand" href="/"><span>JMD</span><small>PROPERTIES</small></a><p>Lead desk</p></div><button className="admin-logout" onClick={()=>{sessionStorage.removeItem("jmd-admin-token");setToken("")}}>Log out</button></header>
+    <section className="admin-title"><div><p className="eyebrow">PRIVATE / ADMIN</p><h1>Lead <em>desk.</em></h1><p>Every enquiry. Every next step. One place.</p></div><button className="refresh-btn" onClick={()=>loadLeads()}><Search size={15}/> Refresh</button></section>
+    {error && <p className="admin-error">{error}</p>}
+    <div className="admin-stats"><div><span>Total leads</span><strong>{leads.length}</strong></div><div><span>New</span><strong>{leads.filter(l=>l.status==="NEW").length}</strong></div><div><span>In progress</span><strong>{leads.filter(l=>!["NEW","DONE","CANCELLED"].includes(l.status)).length}</strong></div><div><span>Done</span><strong>{leads.filter(l=>l.status==="DONE").length}</strong></div></div>
+    <section className="lead-table"><div className="lead-table-head"><span>Lead</span><span>Type / Need</span><span>Status</span><span>Assigned</span><span>Created</span></div>
+      {loading && leads.length===0 ? <div className="empty-leads">Loading leads…</div> : leads.length===0 ? <div className="empty-leads">No leads yet. New website enquiries will appear here.</div> : leads.map(lead=><article className="lead-row" key={lead.id}>
+        <div><strong>{lead.name}</strong><small>{lead.phone} · {lead.location}</small></div>
+        <div><b className={"lead-type "+lead.type.toLowerCase()}>{lead.type}</b><small>{lead.lookingFor}</small></div>
+        <select value={lead.status} onChange={e=>updateLead(lead.id,{status:e.target.value as LeadStatus})}>{statusOptions.map(s=><option key={s} value={s}>{statusLabels[s]}</option>)}</select>
+        <input className="assigned-input" value={lead.assignedTo || ""} placeholder="Assign worker" onChange={e=>updateLead(lead.id,{assignedTo:e.target.value})} onBlur={e=>updateLead(lead.id,{assignedTo:e.target.value})}/>
+        <div className="lead-date">{new Date(lead.createdAt).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"})}</div>
+        <div className="lead-history">{lead.statusEvents.map(ev=><span key={ev.id}><b>{statusLabels[ev.status]}</b> · {new Date(ev.createdAt).toLocaleString("en-IN",{dateStyle:"short",timeStyle:"short"})}</span>)}</div>
+      </article>)}
+    </section>
+  </div></main>;
+}
 
 function App() {
+  if (window.location.pathname === "/admin") return <AdminPanel />;
   const [formOpen, setFormOpen] = useState(false);
   const [intent, setIntent] = useState<Intent>("BUY");
   const [submitted, setSubmitted] = useState(false);
@@ -35,9 +116,9 @@ function App() {
     };
 
     // Temporary local save until the PostgreSQL API is connected.
-    const leads = JSON.parse(localStorage.getItem("jmd-leads") || "[]");
-    localStorage.setItem("jmd-leads", JSON.stringify([...leads, lead]));
-    setSubmitted(true);
+    fetch(API_URL + "/api/leads", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(lead) })
+      .then(async res => { if (!res.ok) throw new Error((await res.json()).message || "Could not save your enquiry"); setSubmitted(true); })
+      .catch(err => { alert(err.message); });
   };
 
   return <main>
@@ -110,5 +191,6 @@ function App() {
       </div>
     </div>}
   </main>;
+}
 }
 export default App;
