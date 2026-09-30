@@ -4,9 +4,9 @@ import { ArrowUpRight, Check, ChevronDown, MapPin, Phone, Search, ShieldCheck, X
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 const properties = [
-  { title: "3 BHK · Sector 150", meta: "Noida · 1,650 sq.ft.", tag: "Verified" },
-  { title: "2 BHK · Sector 137", meta: "Noida · 1,180 sq.ft.", tag: "Owner verified" },
-  { title: "3 BHK · Techzone 4", meta: "Greater Noida West · 1,540 sq.ft.", tag: "Fresh listing" },
+  { title: "3 BHK · Sector 150", meta: "Noida · 1,650 sq.ft.", tag: "Verified", image: "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1000&q=85" },
+  { title: "2 BHK · Sector 137", meta: "Noida · 1,180 sq.ft.", tag: "Owner verified", image: "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1000&q=85" },
+  { title: "3 BHK · Techzone 4", meta: "Greater Noida West · 1,540 sq.ft.", tag: "Fresh listing", image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1000&q=85" },
 ];
 
 type Intent = "BUY" | "SELL";
@@ -169,7 +169,7 @@ function App() {
 
     <section className="section shell" id="buy">
       <div className="section-head"><div><p className="eyebrow">EXPLORE</p><h2>Properties worth<br/><em>looking at.</em></h2></div><button className="text-link" onClick={() => openForm("BUY")}>See all properties <ArrowUpRight size={17}/></button></div>
-      <div className="property-grid">{properties.map((p,i)=><article className="property" key={p.title}><div className={"property-image image-"+(i+1)}><span>{p.tag}</span><div className="image-mark">JMD</div></div><div className="property-info"><div><h3>{p.title}</h3><p>{p.meta}</p></div></div><button className="interest" onClick={() => openForm("BUY")}>I'm interested <ArrowUpRight size={16}/></button></article>)}</div>
+      <div className="property-grid">{properties.map((p,i)=><article className="property" key={p.title}><div className="property-image" style={{backgroundImage:`url(${p.image})`}}><span>{p.tag}</span><div className="image-mark">JMD</div></div><div className="property-info"><div><h3>{p.title}</h3><p>{p.meta}</p></div></div><button className="interest" onClick={() => openForm("BUY")}>I'm interested <ArrowUpRight size={16}/></button></article>)}</div>
     </section>
 
     <section className="how shell" id="how"><div><p className="eyebrow">NO RUNAROUND</p><h2>Property search,<br/><em>but human.</em></h2></div><div className="steps"><div><b>01</b><h3>Tell us what you want</h3><p>Budget, location, BHK, vibe. Keep it simple.</p></div><div><b>02</b><h3>We find the match</h3><p>Our local team filters the noise and brings you relevant options.</p></div><div><b>03</b><h3>We stay till done</h3><p>Visits, conversations and negotiation — all through JMD.</p></div></div></section>
