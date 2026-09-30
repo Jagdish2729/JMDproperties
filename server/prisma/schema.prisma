@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LeadType {
+  BUY
+  SELL
+}
+
+enum LeadStatus {
+  NEW
+  CALL_BOOKED
+  CALL_COMPLETED
+  MEETING_BOOKED
+  MEETING_COMPLETED
+  NEGOTIATION
+  DEAL_IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+model Lead {
+  id           String     @id @default(cuid())
+  name         String
+  phone        String
+  location     String
+  lookingFor   String
+  type         LeadType
+  status       LeadStatus @default(NEW)
+  assignedTo   String?
+  notes        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  statusEvents LeadStatusEvent[]
+}
+
+model LeadStatusEvent {
+  id        String     @id @default(cuid())
+  leadId    String
+  status    LeadStatus
+  note      String?
+  createdAt DateTime @default(now())
+  lead      Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, createdAt])
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash  String
+  role         String   @default("ADMIN")
+  createdAt    DateTime @default(now())
+}
