@@ -93,6 +93,8 @@ function AdminPanel() {
 function App() {
   if (window.location.pathname === "/admin") return <AdminPanel />;
   const [formOpen, setFormOpen] = useState(false);
+  const [visitorName, setVisitorName] = useState(() => localStorage.getItem("jmd-visitor-name") || "");
+  const [selectedProperty, setSelectedProperty] = useState<typeof properties[number] | null>(null);
   const [intent, setIntent] = useState<Intent>("BUY");
   const [submitted, setSubmitted] = useState(false);
   const [infoOpen, setInfoOpen] = useState<"PRIVACY" | "TERMS" | null>(null);
@@ -108,6 +110,31 @@ function App() {
   };
 
   const closeForm = () => setFormOpen(false);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setFormOpen(false);
+        setInfoOpen(null);
+        setSelectedProperty(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = formOpen || infoOpen || !!selectedProperty ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [formOpen, infoOpen, selectedProperty]);
+
+  const openProperty = (property: typeof properties[number]) => {
+    if (!visitorName) {
+      openForm("BUY");
+      return;
+    }
+    setSelectedProperty(property);
+  };
 
   const updateFormField = (field: keyof LeadFormData, value: string) => {
     setFormData(current => ({
@@ -131,6 +158,9 @@ function App() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Could not save your enquiry");
+      const cleanName = formData[intent].name.trim();
+      localStorage.setItem("jmd-visitor-name", cleanName);
+      setVisitorName(cleanName);
       setSubmitted(true);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Could not save your enquiry");
@@ -141,7 +171,10 @@ function App() {
     <nav className="nav shell">
       <a className="brand" href="#top"><span>JMD</span><small>PROPERTIES</small></a>
       <div className="nav-links"><a href="#buy">Buy</a><a href="#sell">Sell</a><a href="#how">How it works</a></div>
-      <button className="nav-cta" onClick={() => openForm()}>Talk to us <ArrowUpRight size={17}/></button>
+      <div className="nav-actions">
+        {visitorName && <div className="nav-welcome">Welcome, <strong>{visitorName}</strong></div>}
+        <button className="nav-cta" onClick={() => openForm()}>Talk to us <ArrowUpRight size={17}/></button>
+      </div>
     </nav>
 
     <section className="hero shell">
@@ -169,7 +202,27 @@ function App() {
 
     <section className="section shell" id="buy">
       <div className="section-head"><div><p className="eyebrow">EXPLORE</p><h2>Properties worth<br/><em>looking at.</em></h2></div><button className="text-link" onClick={() => openForm("BUY")}>See all properties <ArrowUpRight size={17}/></button></div>
-      <div className="property-grid">{properties.map((p,i)=><article className="property" key={p.title}><div className="property-image" style={{backgroundImage:`url(${p.image})`}}><span>{p.tag}</span><div className="image-mark">JMD</div></div><div className="property-info"><div><h3>{p.title}</h3><p>{p.meta}</p></div></div><button className="interest" onClick={() => openForm("BUY")}>I'm interested <ArrowUpRight size={16}/></button></article>)}</div>
+      <div className="property-unlock-note">
+        {visitorName ? <>Welcome back, <strong>{visitorName}</strong>. Tap any property to explore its details.</> : <>Share your details once and we'll unlock the property details for you.</>}
+      </div>
+      <div className="property-grid">{properties.map((p)=><article
+        className={"property " + (visitorName ? "property-unlocked" : "property-locked")}
+        key={p.title}
+        onClick={() => visitorName && openProperty(p)}
+        onKeyDown={(event) => { if (visitorName && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openProperty(p); } }}
+        role={visitorName ? "button" : undefined}
+        tabIndex={visitorName ? 0 : undefined}
+        aria-label={visitorName ? "View details for " + p.title : undefined}
+      >
+        <div className="property-image" style={{backgroundImage:`url(${p.image})`}}>
+          <span>{p.tag}</span>
+          <div className="image-mark">JMD</div>
+          {!visitorName && <div className="property-lock">Details unlock after enquiry</div>}
+          {visitorName && <div className="property-open-hint">View details <ArrowUpRight size={15}/></div>}
+        </div>
+        <div className="property-info"><div><h3>{p.title}</h3><p>{p.meta}</p></div></div>
+        <button className="interest" onClick={(event) => { event.stopPropagation(); openForm("BUY"); }}>I'm interested <ArrowUpRight size={16}/></button>
+      </article>)}</div>
     </section>
 
     <section className="how shell" id="how"><div><p className="eyebrow">NO RUNAROUND</p><h2>Property search,<br/><em>but human.</em></h2></div><div className="steps"><div><b>01</b><h3>Tell us what you want</h3><p>Budget, location, BHK, vibe. Keep it simple.</p></div><div><b>02</b><h3>We find the match</h3><p>Our local team filters the noise and brings you relevant options.</p></div><div><b>03</b><h3>We stay till done</h3><p>Visits, conversations and negotiation — all through JMD.</p></div></div></section>
@@ -193,6 +246,29 @@ function App() {
           <p className="info-copy">Before launch, this page should be replaced with JMD Properties' final terms of service and brokerage terms, reviewed for the applicable jurisdiction.</p>
         </>}
         <button className="form-submit" onClick={() => setInfoOpen(null)}>Close <X size={17}/></button>
+      </div>
+    </div>}
+    {selectedProperty && <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setSelectedProperty(null)}>
+      <div className="property-detail-modal" role="dialog" aria-modal="true" aria-labelledby="property-detail-title">
+        <button className="modal-close" aria-label="Close property details" onClick={() => setSelectedProperty(null)}><X size={19}/></button>
+        <div className="property-detail-image" style={{backgroundImage:`url(${selectedProperty.image})`}}>
+          <span>{selectedProperty.tag}</span>
+          <div className="image-mark">JMD</div>
+        </div>
+        <div className="property-detail-copy">
+          <div>
+            <div className="modal-kicker">JMD PROPERTY</div>
+            <h2 id="property-detail-title">{selectedProperty.title}</h2>
+            <p className="property-detail-meta">{selectedProperty.meta}</p>
+          </div>
+          <div className="property-detail-grid">
+            <div><span>STATUS</span><strong>{selectedProperty.tag}</strong></div>
+            <div><span>LOCATION</span><strong>{selectedProperty.meta.split(" · ")[0]}</strong></div>
+            <div><span>PROPERTY</span><strong>{selectedProperty.title.split(" · ")[1]}</strong></div>
+          </div>
+          <p className="property-detail-description">Property details, amenities, availability and other listing information will be maintained by the JMD Properties team. Ask us for the latest verified details and arrange a conversation or visit.</p>
+          <button className="form-submit" onClick={() => { setSelectedProperty(null); openForm("BUY"); }}>I'm interested <ArrowUpRight size={18}/></button>
+        </div>
       </div>
     </div>}
     {formOpen && <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && closeForm()}>
