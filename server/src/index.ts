@@ -8,7 +8,7 @@ import { PrismaClient, LeadStatus, LeadType } from "@prisma/client";
 const app = express();
 const prisma = new PrismaClient();
 const port = Number(process.env.PORT || 4000);
-const jwtSecret = process.env.JWT_SECRET;
+const jwtSecret = process.env.JWT_SECRET ?? "";
 if (!jwtSecret) throw new Error("JWT_SECRET is required");
 
 app.use(cors({ origin: true, credentials: true }));
@@ -46,7 +46,11 @@ app.post("/api/admin/login", async (req, res) => {
     const admin = await prisma.adminUser.findUnique({ where: { email: String(email || "").trim().toLowerCase() } });
     if (!admin || !(await bcrypt.compare(String(password || ""), admin.passwordHash)))
       return res.status(401).json({ message: "Invalid email or password" });
-    const token = jwt.sign({ sub: admin.id, role: admin.role }, jwtSecret, { expiresIn: "8h" });
+    const token = jwt.sign(
+      { sub: admin.id, role: admin.role },
+      jwtSecret,
+      { expiresIn: "8h" }
+    );
     return res.json({ token, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role } });
   } catch { return res.status(500).json({ message: "Login failed" }); }
 });
@@ -64,17 +68,20 @@ app.patch("/api/admin/leads/:id", auth, async (req, res) => {
   if (status && !Object.values(LeadStatus).includes(status))
     return res.status(400).json({ message: "Invalid status" });
 
+  const nextStatus = status ? (status as LeadStatus) : undefined;
+  const leadId = String(req.params.id);
+
   const lead = await prisma.lead.update({
-    where: { id: req.params.id },
+    where: { id: leadId },
     data: {
-      ...(status ? { status } : {}),
+      ...(nextStatus ? { status: nextStatus } : {}),
       ...(assignedTo !== undefined ? { assignedTo: assignedTo || null } : {}),
       ...(notes !== undefined ? { notes: notes || null } : {}),
-      ...(status ? { statusEvents: { create: { status, note: notes || undefined } } } : {})
+      ...(nextStatus ? { statusEvents: { create: { status: nextStatus, note: notes || undefined } } } : {})
     },
     include: { statusEvents: { orderBy: { createdAt: "asc" } } }
   });
   res.json(lead);
 });
 
-app.listen(port, () => console.log("JMD API running on http://localhost:" + port));
+app.listen(port, () => console.log("JMD API running on port " + port));
