@@ -4,9 +4,9 @@ import { ArrowUpRight, Check, ChevronDown, MapPin, Phone, Search, ShieldCheck, X
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 const properties = [
-  { title: "3 BHK · Sector 150", meta: "Noida · 1,650 sq.ft.", price: "₹92 L", tag: "Verified" },
-  { title: "2 BHK · Sector 137", meta: "Noida · 1,180 sq.ft.", price: "₹68 L", tag: "Owner verified" },
-  { title: "3 BHK · Techzone 4", meta: "Greater Noida West · 1,540 sq.ft.", price: "₹84 L", tag: "Fresh listing" },
+  { title: "3 BHK · Sector 150", meta: "Noida · 1,650 sq.ft.", tag: "Verified" },
+  { title: "2 BHK · Sector 137", meta: "Noida · 1,180 sq.ft.", tag: "Owner verified" },
+  { title: "3 BHK · Techzone 4", meta: "Greater Noida West · 1,540 sq.ft.", tag: "Fresh listing" },
 ];
 
 type Intent = "BUY" | "SELL";
@@ -95,6 +95,7 @@ function App() {
   const [formOpen, setFormOpen] = useState(false);
   const [intent, setIntent] = useState<Intent>("BUY");
   const [submitted, setSubmitted] = useState(false);
+  const [infoOpen, setInfoOpen] = useState<"PRIVACY" | "TERMS" | null>(null);
   const [formData, setFormData] = useState<Record<Intent, LeadFormData>>({
     BUY: { name:"", phone:"", location:"", lookingFor:"" },
     SELL: { name:"", phone:"", location:"", lookingFor:"" }
@@ -136,9 +137,9 @@ function App() {
     }
   };
 
-  return <main>
+  return <main id="top">
     <nav className="nav shell">
-      <a className="brand" href="#"><span>JMD</span><small>PROPERTIES</small></a>
+      <a className="brand" href="#top"><span>JMD</span><small>PROPERTIES</small></a>
       <div className="nav-links"><a href="#buy">Buy</a><a href="#sell">Sell</a><a href="#how">How it works</a></div>
       <button className="nav-cta" onClick={() => openForm()}>Talk to us <ArrowUpRight size={17}/></button>
     </nav>
@@ -168,15 +169,32 @@ function App() {
 
     <section className="section shell" id="buy">
       <div className="section-head"><div><p className="eyebrow">EXPLORE</p><h2>Properties worth<br/><em>looking at.</em></h2></div><button className="text-link" onClick={() => openForm("BUY")}>See all properties <ArrowUpRight size={17}/></button></div>
-      <div className="property-grid">{properties.map((p,i)=><article className="property" key={p.title}><div className={"property-image image-"+(i+1)}><span>{p.tag}</span><div className="image-mark">JMD</div></div><div className="property-info"><div><h3>{p.title}</h3><p>{p.meta}</p></div><strong>{p.price}</strong></div><button className="interest" onClick={() => openForm("BUY")}>I'm interested <ArrowUpRight size={16}/></button></article>)}</div>
+      <div className="property-grid">{properties.map((p,i)=><article className="property" key={p.title}><div className={"property-image image-"+(i+1)}><span>{p.tag}</span><div className="image-mark">JMD</div></div><div className="property-info"><div><h3>{p.title}</h3><p>{p.meta}</p></div></div><button className="interest" onClick={() => openForm("BUY")}>I'm interested <ArrowUpRight size={16}/></button></article>)}</div>
     </section>
 
     <section className="how shell" id="how"><div><p className="eyebrow">NO RUNAROUND</p><h2>Property search,<br/><em>but human.</em></h2></div><div className="steps"><div><b>01</b><h3>Tell us what you want</h3><p>Budget, location, BHK, vibe. Keep it simple.</p></div><div><b>02</b><h3>We find the match</h3><p>Our local team filters the noise and brings you relevant options.</p></div><div><b>03</b><h3>We stay till done</h3><p>Visits, conversations and negotiation — all through JMD.</p></div></div></section>
 
     <section className="sell-banner shell" id="sell"><div><p className="eyebrow">OWN A PROPERTY?</p><h2>Don't just list it.<br/><em>Let's sell it.</em></h2><p>Put your property in front of genuine buyers and let our local team handle the first conversation.</p></div><button onClick={() => openForm("SELL")}>List my property <ArrowUpRight/></button></section>
 
-    <footer className="footer shell"><div className="brand"><span>JMD</span><small>PROPERTIES</small></div><p>Find your place. Without the property drama.</p><div className="footer-right"><a href="#">Privacy</a><a href="#">Terms</a><button onClick={() => openForm()}><Phone size={15}/> Contact</button></div></footer>
+    <footer className="footer shell" id="footer"><div className="brand"><span>JMD</span><small>PROPERTIES</small></div><p>Find your place. Without the property drama.</p><div className="footer-right"><button onClick={() => setInfoOpen("PRIVACY")}>Privacy</button><button onClick={() => setInfoOpen("TERMS")}>Terms</button><button onClick={() => openForm()}><Phone size={15}/> Contact</button></div></footer>
 
+    {infoOpen && <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setInfoOpen(null)}>
+      <div className="lead-modal info-modal" role="dialog" aria-modal="true" aria-labelledby="info-title">
+        <button className="modal-close" aria-label="Close" onClick={() => setInfoOpen(null)}><X size={19}/></button>
+        <div className="modal-kicker">JMD PROPERTIES</div>
+        <h2 id="info-title">{infoOpen === "PRIVACY" ? "Privacy." : "Terms."}</h2>
+        {infoOpen === "PRIVACY" ? <>
+          <p className="modal-sub">We collect the details you submit through our enquiry forms so the JMD Properties team can contact you about your property requirement or listing.</p>
+          <p className="info-copy">Your enquiry details are used for property matching, follow-up, calls and related service communication. We do not provide a public directory of customer contact details.</p>
+          <p className="info-copy">Before launch, this page should be replaced with JMD Properties' final privacy policy covering retention, third-party services and applicable legal rights.</p>
+        </> : <>
+          <p className="modal-sub">JMD Properties uses the information you provide to understand your requirement, connect you with relevant property opportunities and coordinate the next steps.</p>
+          <p className="info-copy">Property availability, specifications, pricing and transaction terms can change and should be confirmed with the JMD Properties team before any decision or transaction.</p>
+          <p className="info-copy">Before launch, this page should be replaced with JMD Properties' final terms of service and brokerage terms, reviewed for the applicable jurisdiction.</p>
+        </>}
+        <button className="form-submit" onClick={() => setInfoOpen(null)}>Close <X size={17}/></button>
+      </div>
+    </div>}
     {formOpen && <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && closeForm()}>
       <div className="lead-modal" role="dialog" aria-modal="true" aria-labelledby="lead-title">
         <button className="modal-close" aria-label="Close form" onClick={closeForm}><X size={19}/></button>
